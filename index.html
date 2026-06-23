@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kjeldgaard · Ad Review</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a;
+  --tx:#e8eaed; --tx2:#a4abb8; --tx3:#6e7684;
+  --kold:#378ADD; --koldbg:#13243a; --varm:#EF9F27; --varmbg:#2e2410; --hot:#D85A30; --hotbg:#2e1a12;
+  --accent:#c9a24a;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--tx);height:100vh;overflow:hidden}
+.app{display:grid;grid-template-columns:300px 1fr;height:100vh}
+/* sidebar */
+.side{background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:14px 10px}
+.side h1{font-size:15px;margin:4px 6px 2px;font-weight:600}
+.side .sub{font-size:12px;color:var(--tx3);margin:0 6px 12px}
+.tier{font-size:12px;font-weight:600;letter-spacing:.02em;margin:16px 6px 6px;display:flex;align-items:center;gap:7px}
+.tier .dot{width:9px;height:9px;border-radius:50%}
+.tier .cnt{color:var(--tx3);font-weight:400}
+.row{display:flex;gap:9px;align-items:center;padding:6px;border-radius:8px;cursor:pointer;margin-bottom:2px}
+.row:hover{background:var(--panel2)}
+.row.on{background:var(--panel2);outline:1px solid var(--accent)}
+.row img{width:38px;height:38px;object-fit:cover;border-radius:5px;background:#000;flex:none}
+.row .nm{font-size:13px;text-transform:capitalize;line-height:1.2}
+.row .st{font-size:11px;color:var(--tx3)}
+/* main */
+.main{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.bar{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line)}
+.bar .name{font-size:17px;font-weight:600;text-transform:capitalize}
+.chip{font-size:12px;padding:3px 10px;border-radius:6px;font-weight:600}
+.spacer{flex:1}
+.toggle,.nav button,.exp{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:6px 11px;font-size:13px;cursor:pointer}
+.toggle.on{background:var(--accent);color:#1a1500;border-color:var(--accent)}
+.nav{display:flex;gap:6px}
+.body{flex:1;display:grid;grid-template-columns:1fr 360px;gap:0;overflow:hidden}
+.stage{display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto;background:#0a0c10}
+.stage img{max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+.panel{border-left:1px solid var(--line);background:var(--panel);padding:18px;overflow-y:auto;display:flex;flex-direction:column}
+.lab{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin:14px 0 5px}
+.lab:first-child{margin-top:0}
+.val{font-size:14px;line-height:1.6;color:var(--tx)}
+.val.muted{color:var(--tx2)}
+textarea{width:100%;flex:1;min-height:120px;margin-top:6px;background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:11px;font-size:14px;line-height:1.5;resize:none;font-family:inherit}
+textarea:focus{outline:none;border-color:var(--accent)}
+.savez{font-size:11px;color:var(--tx3);margin-top:7px;display:flex;justify-content:space-between;align-items:center}
+.hint{font-size:11px;color:var(--tx3);margin-top:10px;line-height:1.5}
+kbd{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <h1>Kjeldgaard · Ad Review</h1>
+    <p class="sub">19 ads · awareness + preview + feedback</p>
+    <div id="list"></div>
+  </aside>
+  <main class="main">
+    <div class="bar">
+      <span class="name" id="mName">—</span>
+      <span class="chip" id="mChip"></span>
+      <span class="spacer"></span>
+      <button class="toggle on" id="t11">1:1</button>
+      <button class="toggle" id="t916">9:16</button>
+      <div class="nav">
+        <button id="prev">↑ Forrige</button>
+        <button id="next">Næste ↓</button>
+      </div>
+      <button class="exp" id="export">Eksportér feedback</button>
+    </div>
+    <div class="body">
+      <div class="stage"><img id="mImg" alt=""></div>
+      <div class="panel">
+        <div class="lab">Awareness-stadie</div><div class="val" id="pStage"></div>
+        <div class="lab">Publikum</div><div class="val" id="pAud"></div>
+        <div class="lab">Hvorfor (Schwartz)</div><div class="val muted" id="pWhy"></div>
+        <div class="lab">Tekst i ad'en</div><div class="val muted" id="pTxt"></div>
+        <div class="lab">Din feedback</div>
+        <textarea id="fb" placeholder="Skriv feedback til denne ad… (gemmes automatisk)"></textarea>
+        <div class="savez"><span id="saved">Gemt</span><span id="idx"></span></div>
+        <div class="hint"><kbd>↑</kbd>/<kbd>↓</kbd> skift ad · <kbd>⌘</kbd>+<kbd>Enter</kbd> gem & næste · feedback gemmes lokalt i browseren</div>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+const TIERS={kold:{lab:'KOLD · nye kunder',dot:'#378ADD',bg:'#13243a',tx:'#7fb6ef'},
+ varm:{lab:'VARM · kender mærket',dot:'#EF9F27',bg:'#2e2410',tx:'#f0bf6e'},
+ hot:{lab:'HOT · retargeting / luk',dot:'#D85A30',bg:'#2e1a12',tx:'#e8916a'}};
+const ADS=[
+ {k:'birthe',t:'kold',s:'Problem → Solution',aud:'Kold · nye kunder',w:"Relaterbar identitets-hook ('Selv som bedstemor på 65') — fanger nye der ikke kender mærket, leverer så bevis + CTA.",txt:"SELV SOM BEDSTEMOR PÅ 65 ÆNDREDE DEN MIN HUD · 27% færre rynker på 28 dage · PRØV RISIKOFRIT"},
+ {k:'mette',t:'kold',s:'Solution',aud:'Kold · nye kunder',w:"Ren begær-overskrift — taler til ønsket, ikke produktet. Aspirations-indgang for nye.",txt:"GIV DIN HUD DEN TILBAGE, DEN ENGANG VAR. · Gendanner din hudbarriere"},
+ {k:'gentle',t:'kold',s:'Solution (+Problem)',aud:'Kold–varm · sensitiv-segment',w:"Mekanisme + indvendingshåndtering — rammer dem hvis problem er 'retinol er for stærkt for mig'.",txt:"RETINOL — I SIN MEST SKÅNSOMME FORM · Skånsom nok til sensitiv hud · Uden parfume · uden olie"},
+ {k:'sturm-hero',t:'kold',s:'Solution → Product',aud:'Kold–varm',w:"Leder med mekanismen (indkapslet retinol, langsom frigivelse) — Schwartz' svar på et udslidt marked.",txt:"INDKAPSLET RETINOL — FRIGIVES LANGSOMT OG SKÅNSOMT · Udviklet af dermatologer"},
+ {k:'R4',t:'kold',s:'Solution → Product',aud:'Kold–varm',w:"'Ingen nåle. Ingen klinik.' = us-vs-them mod botox/klinik; rammer dem der sammenligner løsninger.",txt:"27% FÆRRE RYNKER · Ingen nåle. Ingen klinik. Bare din daglige serum. · pengene-tilbage-garanti"},
+ {k:'R5',t:'kold',s:'Solution → Product',aud:'Kold–varm + retarget',w:"Stat + fart ('81% allerede efter 14 dage') — bevis på at det ønskede resultat er hurtigt opnåeligt.",txt:"81% oplevede synlig forbedring allerede efter 14 dage · n=21, Zurko EU"},
+ {k:'miami',t:'varm',s:'Solution → Most',aud:'Fuld tragt (all-rounder)',w:"Løsning + benefits + CTA + risikofri-garanti. Sjælden all-rounder der spænder hele tragten.",txt:"Styrk din hudbarriere · Genopbygget hud — synligt på 28 dage · PRØV RISIKOFRIT · 60 dages garanti"},
+ {k:'pro-woman',t:'varm',s:'Solution → Product',aud:'Fuld tragt',w:"Begær + mekanisme + trust + CTA i ét. Mid-funnel arbejdshest.",txt:"Giv din hud styrken tilbage · Indkapslet retinol — synligt glattere hud på 28 dage · PRØV RISIKOFRIT"},
+ {k:'R1',t:'varm',s:'Product',aud:'Varm · retargeting',w:"Klinisk dokumentation (100/90/95%, n=21) — Schwartz' 'ny proof/dokumentation'.",txt:"100% forbedring · 90% mere glødende · 95% mere fugtet (efter 28 dage) · n=21, Zurko EU"},
+ {k:'R2',t:'varm',s:'Product',aud:'Varm · retargeting',w:"Verificeret kunde + portræt — proof + let sammenligning ('uden brug af andre cremer').",txt:"“Min hud føles blød og glat uden brug af andre cremer. Et fantastisk produkt.” – Kathrine E."},
+ {k:'R3',t:'varm',s:'Product',aud:'Varm · retargeting',w:"Levende resultat-citat ('som en barnenumse') — dramatiseret social proof.",txt:"“MIN HUD FØLES SOM EN BARNENUMSE.” – Anonym kunde, 68 år"},
+ {k:'caldera-hero',t:'varm',s:'Product',aud:'Varm · retargeting',w:"Ægte kunde-citat (Lizzi) om resultatet — bevis til en der overvejer.",txt:"“RYNKERNE RETTER SIG NÆRMEST BARE UD.” – LIZZI, ÆGTE KUNDE"},
+ {k:'celeb',t:'varm',s:'Product',aud:'Varm · retargeting',w:"Testimonial + portræt, poleret — ren social proof.",txt:"“Mere fugt, en dejlig GLØD — og ikke så mange RYNKER.” – ÆGTE KUNDE"},
+ {k:'testimonial',t:'varm',s:'Product',aud:'Varm · retargeting',w:"★★★★★ superlativ — sidste skub af bevis til en der er tæt på.",txt:"“DEN BEDSTE SERUM JEG NOGENSINDE HAR PRØVET.” – BIRGITTE F."},
+ {k:'sturm-stats',t:'varm',s:'Product',aud:'Varm · retargeting',w:"Klinisk bevis i Sturm-stil (100/95/90%) — proof.",txt:"100% forbedring · 95% mere fugtet · 90% blødere hud · 21 deltagere, 28 dage"},
+ {k:'aesop',t:'hot',s:'Product → Most',aud:'Varm–hot · retargeting',w:"'Gør som vores kunder' + 120 Trustpilot + 'mærk selv forskellen' — tilhør + luk.",txt:"Gør som vores kunder, og mærk selv forskellen. Din hud vil takke dig. · 120 anmeldelser"},
+ {k:'method-test',t:'hot',s:'Product → Most',aud:'Hot · retargeting / BOF',w:"Claim + mekanisme + SPAR 15% + garanti — rabatten er lukkeværktøjet for nær-købere.",txt:"27% FÆRRE RYNKER PÅ 28 DAGE · Indkapslet retinol · SPAR 15% · 60 DAGES GARANTI"},
+ {k:'product-value',t:'hot',s:'Product → Most',aud:'Hot · retargeting / BOF',w:"Værdi-reframe ('3 produkter i ét') + SPAR 15% + garanti — til værdi-drevne lukkere.",txt:"ÉN SERUM. ØJENCREME, SERUM OG ANSIGTSCREME I ÉT. · SPAR 15% · 60 DAGES GARANTI"},
+ {k:'bente',t:'hot',s:'Product → Most',aud:'Hot · retargeting / BOF',w:"Testimonial + 'ægte Trustpilot' + 60 dages garanti — bevis + risikofjerner = luk.",txt:"“RYNKERNE RETTER SIG NÆRMEST BARE UD” – ægte Trustpilot-anmeldelse · 60 DAGES GARANTI"}
+];
+let cur=0, fmt='1x1';
+const $=id=>document.getElementById(id);
+function buildList(){
+ const L=$('list'); let html='';
+ ['kold','varm','hot'].forEach(tk=>{
+  const T=TIERS[tk]; const items=ADS.map((a,i)=>({a,i})).filter(x=>x.a.t===tk);
+  html+=`<div class="tier" style="color:${T.tx}"><span class="dot" style="background:${T.dot}"></span>${T.lab} <span class="cnt">${items.length}</span></div>`;
+  items.forEach(({a,i})=>{
+   html+=`<div class="row" data-i="${i}"><img src="img/${a.k}-1x1.jpg" alt=""><div><div class="nm">${a.k.replace(/-/g,' ')}</div><div class="st">${a.s}</div></div></div>`;
+  });
+ });
+ L.innerHTML=html;
+ L.querySelectorAll('.row').forEach(r=>r.addEventListener('click',()=>select(+r.dataset.i)));
+}
+function fbKey(k){return 'kjfb_'+k}
+function select(i){
+ saveFb();
+ cur=(i+ADS.length)%ADS.length; const a=ADS[cur]; const T=TIERS[a.t];
+ $('mName').textContent=a.k.replace(/-/g,' ');
+ const c=$('mChip'); c.textContent=a.s; c.style.background=T.bg; c.style.color=T.tx;
+ $('pStage').textContent=a.s;
+ $('pAud').textContent=a.aud;
+ $('pWhy').textContent=a.w;
+ $('pTxt').textContent=a.txt;
+ $('idx').textContent=(cur+1)+' / '+ADS.length;
+ setImg();
+ $('fb').value=localStorage.getItem(fbKey(a.k))||'';
+ document.querySelectorAll('.row').forEach(r=>r.classList.toggle('on',+r.dataset.i===cur));
+ const onRow=document.querySelector('.row.on'); if(onRow)onRow.scrollIntoView({block:'nearest'});
+ $('fb').focus();
+}
+function setImg(){
+ const a=ADS[cur];
+ $('mImg').src=`img/${a.k}-${fmt}.jpg`;
+ $('t11').classList.toggle('on',fmt==='1x1');
+ $('t916').classList.toggle('on',fmt==='9x16');
+}
+function saveFb(){
+ const a=ADS[cur]; if(!a)return;
+ localStorage.setItem(fbKey(a.k),$('fb').value);
+ $('saved').textContent='Gemt ✓';
+}
+$('fb').addEventListener('input',()=>{$('saved').textContent='Gemmer…';saveFb();});
+$('t11').onclick=()=>{fmt='1x1';setImg();};
+$('t916').onclick=()=>{fmt='9x16';setImg();};
+$('prev').onclick=()=>select(cur-1);
+$('next').onclick=()=>select(cur+1);
+document.addEventListener('keydown',e=>{
+ if(e.key==='ArrowDown' && !e.metaKey){e.preventDefault();select(cur+1);}
+ else if(e.key==='ArrowUp' && !e.metaKey){e.preventDefault();select(cur-1);}
+ else if(e.key==='Enter' && (e.metaKey||e.ctrlKey)){e.preventDefault();select(cur+1);}
+});
+$('export').onclick=()=>{
+ let out='KJELDGAARD AD REVIEW — feedback\n\n';
+ ADS.forEach(a=>{const v=localStorage.getItem(fbKey(a.k))||'';out+=`### ${a.k}  [${a.s} · ${a.aud}]\n${v||'(ingen feedback)'}\n\n`;});
+ const b=new Blob([out],{type:'text/plain'}); const u=URL.createObjectURL(b);
+ const x=document.createElement('a'); x.href=u; x.download='kjeldgaard-ad-feedback.txt'; x.click();
+};
+buildList(); select(0);
+</script>
+</body>
+</html>

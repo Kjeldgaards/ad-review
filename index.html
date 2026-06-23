@@ -46,6 +46,14 @@ body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,
 .val.muted{color:var(--tx2)}
 textarea{width:100%;flex:1;min-height:120px;margin-top:6px;background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:11px;font-size:14px;line-height:1.5;resize:none;font-family:inherit}
 textarea:focus{outline:none;border-color:var(--accent)}
+.editta{flex:none;min-height:70px;height:70px}
+.lab-note{text-transform:none;letter-spacing:0;color:var(--tx3);font-weight:400}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:7px}
+.preset{font-size:12px;padding:4px 9px;border-radius:6px;background:var(--panel2);color:var(--tx2);border:1px solid var(--line);cursor:pointer}
+.preset:hover{border-color:var(--accent);color:var(--tx)}
+.sendbtn{margin-top:8px;width:100%;background:var(--accent);color:#1a1500;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:600;cursor:pointer}
+.sendbtn:hover{filter:brightness(1.06)}
+.sendbtn:active{transform:scale(.99)}
 .savez{font-size:11px;color:var(--tx3);margin-top:7px;display:flex;justify-content:space-between;align-items:center}
 .hint{font-size:11px;color:var(--tx3);margin-top:10px;line-height:1.5}
 kbd{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:11px}
@@ -78,6 +86,13 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padd
         <div class="lab">Publikum</div><div class="val" id="pAud"></div>
         <div class="lab">Hvorfor (Schwartz)</div><div class="val muted" id="pWhy"></div>
         <div class="lab">Tekst i ad'en</div><div class="val muted" id="pTxt"></div>
+
+        <div class="lab">✏️ Rediger billede <span class="lab-note">(sendes til Claude → ny version pushes)</span></div>
+        <div class="presets" id="presets"></div>
+        <textarea id="edit" class="editta" placeholder='Beskriv ændringen… fx "Skift overskrift til: Glattere hud på 28 dage" eller "Indsæt Zurko-disclaimer"'></textarea>
+        <button class="sendbtn" id="sendEdit"><i></i>Send redigering til Claude</button>
+        <div class="savez"><span id="editStatus"></span></div>
+
         <div class="lab">Din feedback</div>
         <textarea id="fb" placeholder="Skriv feedback til denne ad… (gemmes automatisk)"></textarea>
         <div class="savez"><span id="saved">Gemt</span><span id="idx"></span></div>
@@ -138,6 +153,7 @@ function select(i){
  $('idx').textContent=(cur+1)+' / '+ADS.length;
  setImg();
  $('fb').value=localStorage.getItem(fbKey(a.k))||'';
+ $('edit').value=localStorage.getItem('kjedit_'+a.k)||''; $('editStatus').textContent='';
  document.querySelectorAll('.row').forEach(r=>r.classList.toggle('on',+r.dataset.i===cur));
  const onRow=document.querySelector('.row.on'); if(onRow)onRow.scrollIntoView({block:'nearest'});
  $('fb').focus();
@@ -166,6 +182,32 @@ document.addEventListener('keydown',e=>{
 $('export').onclick=()=>{
  let out='KJELDGAARD AD REVIEW — feedback\n\n';
  ADS.forEach(a=>{const v=localStorage.getItem(fbKey(a.k))||'';out+=`### ${a.k}  [${a.s} · ${a.aud}]\n${v||'(ingen feedback)'}\n\n`;});
+ const b=new Blob([out],{type:'text/plain'}); const u=URL.createObjectURL(b);
+ const x=document.createElement('a'); x.href=u; x.download='kjeldgaard-ad-feedback.txt'; x.click();
+};
+const PRESETS=[
+ ['Skift overskrift…','Skift overskrift til: '],
+ ['Glattere hud på 28 dage','Skift overskrift til: Glattere hud på 28 dage'],
+ ['Indsæt Zurko-disclaimer','Indsæt diskret kildeangivelse nederst: *Klinisk studie, n=21, 28 dage · Zurko, EU*'],
+ ['Fjern SPAR 15%-badge','Fjern rabat-badgen (SPAR 15%)'],
+ ['Fjern element…','Fjern: '],
+ ['Udskift…','Udskift … med …'],
+ ['Lysere isblå flaske','Gør flasken en anelse lysere og mere isblå']
+];
+(function(){const wrap=$('presets');PRESETS.forEach(([label,tpl])=>{const b=document.createElement('button');b.className='preset';b.type='button';b.textContent=label;b.onclick=()=>{const t=$('edit');t.value=tpl;t.focus();t.setSelectionRange(t.value.length,t.value.length);};wrap.appendChild(b);});})();
+function sendEdit(){
+ const a=ADS[cur]; const p=$('edit').value.trim();
+ if(!p){$('editStatus').textContent='Skriv en ændring først.';return;}
+ localStorage.setItem('kjedit_'+a.k,p);
+ const msg='🖼️ REDIGER "'+a.k+'" ['+fmt+']: '+p;
+ if(navigator.clipboard&&navigator.clipboard.writeText){
+  navigator.clipboard.writeText(msg).then(()=>{$('editStatus').textContent='✓ Kopieret — indsæt i Claude-chatten (⌘V), så laver jeg ændringen og pusher den.';}).catch(()=>{$('editStatus').textContent='Kopiér manuelt: '+msg;});
+ } else {$('editStatus').textContent='Kopiér manuelt: '+msg;}
+}
+$('sendEdit').onclick=sendEdit;
+$('export').onclick=()=>{
+ let out='KJELDGAARD AD REVIEW\n\n';
+ ADS.forEach(a=>{const fb=localStorage.getItem(fbKey(a.k))||'';const ed=localStorage.getItem('kjedit_'+a.k)||'';out+='### '+a.k+'  ['+a.s+' · '+a.aud+']\nFEEDBACK: '+(fb||'(ingen)')+'\nREDIGERING: '+(ed||'(ingen)')+'\n\n';});
  const b=new Blob([out],{type:'text/plain'}); const u=URL.createObjectURL(b);
  const x=document.createElement('a'); x.href=u; x.download='kjeldgaard-ad-feedback.txt'; x.click();
 };

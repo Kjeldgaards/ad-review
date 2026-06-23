@@ -99,11 +99,12 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padd
         <div class="lab">Hvorfor (Schwartz)</div><div class="val muted" id="pWhy"></div>
         <div class="lab">Tekst i ad'en</div><div class="val muted" id="pTxt"></div>
 
-        <div class="lab">✏️ Rediger billede <span class="lab-note">(sendes til Claude → ny version pushes)</span></div>
+        <div class="lab">✏️ Rediger billede <span class="lab-note">(lægges i kø → billedet opdateres på siden)</span></div>
         <div class="presets" id="presets"></div>
         <textarea id="edit" class="editta" placeholder='Beskriv ændringen… fx "Skift overskrift til: Glattere hud på 28 dage" eller "Indsæt Zurko-disclaimer"'></textarea>
-        <button class="sendbtn" id="sendEdit"><i></i>Send redigering til Claude</button>
+        <button class="sendbtn" id="sendEdit">Send redigering ➜ kø</button>
         <div class="savez"><span id="editStatus"></span></div>
+        <div id="editlist" class="cmtlist"></div>
 
         <div class="lab">💬 Team-kommentarer <span class="lab-note">(delt — alle ser dem)</span></div>
         <div class="cmtform">
@@ -172,7 +173,7 @@ function select(i){
  $('idx').textContent=(cur+1)+' / '+ADS.length;
  setImg();
  $('edit').value=localStorage.getItem('kjedit_'+a.k)||''; $('editStatus').textContent='';
- $('cstatus').textContent=''; loadComments(a.k);
+ $('cstatus').textContent=''; loadComments(a.k); loadEditRequests(a.k);
  document.querySelectorAll('.row').forEach(r=>r.classList.toggle('on',+r.dataset.i===cur));
  const onRow=document.querySelector('.row.on'); if(onRow)onRow.scrollIntoView({block:'nearest'});
 }
@@ -232,14 +233,27 @@ const PRESETS=[
  ['Lysere isblå flaske','Gør flasken en anelse lysere og mere isblå']
 ];
 (function(){const wrap=$('presets');PRESETS.forEach(([label,tpl])=>{const b=document.createElement('button');b.className='preset';b.type='button';b.textContent=label;b.onclick=()=>{const t=$('edit');t.value=tpl;t.focus();t.setSelectionRange(t.value.length,t.value.length);};wrap.appendChild(b);});})();
-function sendEdit(){
+async function loadEditRequests(adKey){
+ const box=$('editlist'); if(!box)return;
+ try{
+  const r=await fetch(SB_URL+'/rest/v1/edit_requests?select=*&ad_key=eq.'+encodeURIComponent(adKey)+'&order=created_at.desc',{headers:sbHeaders});
+  const rows=await r.json(); if(!Array.isArray(rows)){box.innerHTML='';return;}
+  if(adKey!==ADS[cur].k)return;
+  if(!rows.length){box.innerHTML='';return;}
+  box.innerHTML='<div class="lab" style="margin-top:10px">Redigerings-kø</div>'+rows.map(c=>'<div class="cmt"><div class="meta"><span class="who">'+esc(c.name)+'</span><span class="ctag">'+esc(c.status||'ny')+'</span><span>'+esc(c.fmt||'')+'</span><span>'+fmtTime(c.created_at)+'</span></div><div class="body">'+esc(c.prompt)+'</div></div>').join('');
+ }catch(e){box.innerHTML='';}
+}
+async function sendEdit(){
  const a=ADS[cur]; const p=$('edit').value.trim();
  if(!p){$('editStatus').textContent='Skriv en ændring først.';return;}
- localStorage.setItem('kjedit_'+a.k,p);
- const msg='🖼️ REDIGER "'+a.k+'" ['+fmt+']: '+p;
- if(navigator.clipboard&&navigator.clipboard.writeText){
-  navigator.clipboard.writeText(msg).then(()=>{$('editStatus').textContent='✓ Kopieret — indsæt i Claude-chatten (⌘V), så laver jeg ændringen og pusher den.';}).catch(()=>{$('editStatus').textContent='Kopiér manuelt: '+msg;});
- } else {$('editStatus').textContent='Kopiér manuelt: '+msg;}
+ let name=$('cname').value.trim()||localStorage.getItem('kjname')||'';
+ if(!name){name=(prompt('Skriv dit navn:')||'').trim(); if(!name){$('editStatus').textContent='Navn kræves.';return;} $('cname').value=name; localStorage.setItem('kjname',name);}
+ $('editStatus').textContent='Sender…';
+ try{
+  const r=await fetch(SB_URL+'/rest/v1/edit_requests',{method:'POST',headers:sbHeaders,body:JSON.stringify({ad_key:a.k,fmt:fmt,prompt:p,name:name})});
+  if(r.ok){$('edit').value='';$('editStatus').textContent='✓ Sendt — i kø. Billedet opdateres på siden, når den er behandlet.';loadEditRequests(a.k);}
+  else{$('editStatus').textContent='Fejl — er kø-tabellen oprettet? Prøv igen.';}
+ }catch(e){$('editStatus').textContent='Ingen forbindelse.';}
 }
 $('sendEdit').onclick=sendEdit;
 $('export').onclick=async()=>{

@@ -60,7 +60,14 @@ textarea:focus{outline:none;border-color:var(--accent)}
 .cta{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:8px;font-size:14px;min-height:54px;resize:none;font-family:inherit;flex:1}
 .cta:focus{outline:none;border-color:var(--accent)}
 .cmtlist{margin-top:12px;display:flex;flex-direction:column;gap:8px}
-.cmt{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px}
+.cmt{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 11px;position:relative}
+.cmt-actions{position:absolute;top:6px;right:8px;display:none;gap:3px}
+.cmt:hover .cmt-actions{display:flex}
+.ic{background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;line-height:1}
+.ic:hover{color:var(--tx);background:var(--line)}
+.ic2{background:var(--panel2);border:1px solid var(--line);color:var(--tx);border-radius:6px;padding:4px 11px;font-size:12px;cursor:pointer}
+.ic2.save{background:var(--accent);color:#1a1500;border-color:var(--accent)}
+.editnote{min-height:50px;width:100%}
 .cmt .meta{font-size:11px;color:var(--tx3);margin-bottom:3px;display:flex;gap:7px;align-items:center}
 .cmt .who{color:var(--tx);font-weight:600}
 .cmt .ctag{background:#13243a;color:#7fb6ef;padding:1px 6px;border-radius:4px;font-size:10px}
@@ -106,18 +113,13 @@ kbd{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padd
         <div class="savez"><span id="editStatus"></span></div>
         <div id="editlist" class="cmtlist"></div>
 
-        <div class="lab">💬 Team-kommentarer <span class="lab-note">(delt — alle ser dem)</span></div>
+        <div class="lab">💬 Noter <span class="lab-note">(delt — alle ser dem)</span></div>
         <div class="cmtform">
-          <input id="cname" class="cinput" placeholder="Dit navn (påkrævet)" autocomplete="name">
-          <div style="display:flex;gap:7px">
-            <select id="ctag" class="cinput" style="flex:none;width:108px"><option>Note</option><option>Husk</option><option>Idé</option><option>Ret</option><option>Ros</option><option>Generelt</option></select>
-            <textarea id="cbody" class="cta" placeholder="Skriv en kommentar…  (⌘+Enter sender)"></textarea>
-          </div>
-          <button class="sendbtn" id="addCmt">Tilføj kommentar</button>
+          <textarea id="cbody" class="cta" placeholder="Skriv en note… (Enter sender · skriv gerne dit navn)"></textarea>
           <div class="savez"><span id="cstatus"></span><span id="idx"></span></div>
         </div>
         <div id="cmtlist" class="cmtlist"></div>
-        <div class="hint"><kbd>↑</kbd>/<kbd>↓</kbd> skift ad · kommentarer er delt med hele teamet (gemt i skyen)</div>
+        <div class="hint"><kbd>Enter</kbd> sender · <kbd>Shift+Enter</kbd> ny linje · hold musen over en note for at <b>redigere/slette</b> · delt i skyen</div>
       </div>
     </div>
   </main>
@@ -196,23 +198,42 @@ async function loadComments(adKey){
   if(!Array.isArray(rows)){box.innerHTML='<div class="cmuted">Kunne ikke hente.</div>';return;}
   if(adKey!==ADS[cur].k)return;
   if(!rows.length){box.innerHTML='<div class="cmuted">Ingen kommentarer endnu — vær den første.</div>';return;}
-  box.innerHTML=rows.map(c=>'<div class="cmt"><div class="meta"><span class="who">'+esc(c.name)+'</span>'+(c.tag?'<span class="ctag">'+esc(c.tag)+'</span>':'')+'<span>'+fmtTime(c.created_at)+'</span></div><div class="body">'+esc(c.body)+'</div></div>').join('');
+  box.innerHTML=rows.map(c=>'<div class="cmt" data-id="'+c.id+'"><div class="cmt-actions"><button class="ic" data-act="edit" title="Redigér">✎</button><button class="ic" data-act="del" title="Slet">🗑</button></div><div class="meta">'+(c.name?'<span class="who">'+esc(c.name)+'</span>':'')+'<span>'+fmtTime(c.created_at)+'</span></div><div class="body">'+esc(c.body)+'</div></div>').join('');
  }catch(e){box.innerHTML='<div class="cmuted">Ingen forbindelse.</div>';}
 }
-async function addComment(){
- const a=ADS[cur]; const name=$('cname').value.trim(); const body=$('cbody').value.trim(); const tag=$('ctag').value;
- if(!name){$('cstatus').textContent='Skriv dit navn først.';$('cname').focus();return;}
- if(!body){$('cstatus').textContent='Skriv en kommentar.';$('cbody').focus();return;}
- localStorage.setItem('kjname',name);
+async function addNote(){
+ const a=ADS[cur]; const body=$('cbody').value.trim();
+ if(!body)return;
  $('cstatus').textContent='Sender…';
  try{
-  const r=await fetch(SB_URL+'/rest/v1/comments',{method:'POST',headers:sbHeaders,body:JSON.stringify({ad_key:a.k,name:name,tag:tag,body:body})});
-  if(r.ok){$('cbody').value='';$('cstatus').textContent='✓ Tilføjet';loadComments(a.k);}
+  const r=await fetch(SB_URL+'/rest/v1/comments',{method:'POST',headers:sbHeaders,body:JSON.stringify({ad_key:a.k,name:'',body:body})});
+  if(r.ok){$('cbody').value='';$('cstatus').textContent='';loadComments(a.k);}
   else{$('cstatus').textContent='Fejl — prøv igen.';}
  }catch(e){$('cstatus').textContent='Ingen forbindelse.';}
 }
-$('addCmt').onclick=addComment;
-$('cbody').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();addComment();}});
+async function delNote(id){
+ try{await fetch(SB_URL+'/rest/v1/comments?id=eq.'+id,{method:'DELETE',headers:sbHeaders});loadComments(ADS[cur].k);}catch(e){}
+}
+async function saveEditNote(id,text){
+ if(!text)return;
+ try{await fetch(SB_URL+'/rest/v1/comments?id=eq.'+id,{method:'PATCH',headers:sbHeaders,body:JSON.stringify({body:text})});loadComments(ADS[cur].k);}catch(e){}
+}
+function startEditNote(cmt,id){
+ const old=cmt.querySelector('.body').textContent;
+ cmt.innerHTML='<textarea class="cta editnote"></textarea><div style="display:flex;gap:6px;margin-top:6px"><button class="ic2 save">Gem</button><button class="ic2 cancel">Annullér</button></div>';
+ const ta=cmt.querySelector('textarea'); ta.value=old; ta.focus(); ta.setSelectionRange(old.length,old.length);
+ cmt.querySelector('.cancel').onclick=()=>loadComments(ADS[cur].k);
+ cmt.querySelector('.save').onclick=()=>saveEditNote(id,ta.value.trim());
+ ta.addEventListener('keydown',ev=>{if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();saveEditNote(id,ta.value.trim());}});
+}
+function onCmtAction(e){
+ const btn=e.target.closest('.ic'); if(!btn)return;
+ const cmt=btn.closest('.cmt'); const id=cmt.dataset.id;
+ if(btn.dataset.act==='del'){if(confirm('Slet denne note?'))delNote(id);}
+ else if(btn.dataset.act==='edit'){startEditNote(cmt,id);}
+}
+$('cbody').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();addNote();}});
+$('cmtlist').addEventListener('click',onCmtAction);
 $('t11').onclick=()=>{fmt='1x1';setImg();};
 $('t916').onclick=()=>{fmt='9x16';setImg();};
 $('prev').onclick=()=>select(cur-1);
@@ -246,8 +267,7 @@ async function loadEditRequests(adKey){
 async function sendEdit(){
  const a=ADS[cur]; const p=$('edit').value.trim();
  if(!p){$('editStatus').textContent='Skriv en ændring først.';return;}
- let name=$('cname').value.trim()||localStorage.getItem('kjname')||'';
- if(!name){name=(prompt('Skriv dit navn:')||'').trim(); if(!name){$('editStatus').textContent='Navn kræves.';return;} $('cname').value=name; localStorage.setItem('kjname',name);}
+ const name=localStorage.getItem('kjname')||'';
  $('editStatus').textContent='Sender…';
  try{
   const r=await fetch(SB_URL+'/rest/v1/edit_requests',{method:'POST',headers:sbHeaders,body:JSON.stringify({ad_key:a.k,fmt:fmt,prompt:p,name:name})});
@@ -271,7 +291,6 @@ $('export').onclick=async()=>{
  }catch(e){alert('Kunne ikke hente kommentarer.');}
  btn.textContent='Eksportér feedback';
 };
-$('cname').value=localStorage.getItem('kjname')||'';
 buildList(); select(0);
 </script>
 </body>
